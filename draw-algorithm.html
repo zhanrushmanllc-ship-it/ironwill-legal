@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lock In, Son — How the Monthly Draw Is Checked</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { margin: 0 auto; padding: 2.5rem 1.25rem 4rem; max-width: 44rem;
+         font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+         color: #1c1c1e; background: #fff; }
+  h1 { font-size: 1.9rem; letter-spacing: -0.02em; margin: 0 0 .25rem; }
+  h2 { font-size: 1.05rem; letter-spacing: .04em; margin: 2.25rem 0 .5rem; }
+  h3 { font-size: 1rem; margin: 1.75rem 0 .35rem; }
+  p, li, td, th { color: #2c2c2e; }
+  .eff, .lede { color: #6b6b70; }
+  .lede { font-size: 1.05rem; margin: .25rem 0 2rem; }
+  .eff { font-size: .9rem; margin-top: 0; }
+  ul, ol { padding-left: 1.15rem; }
+  li { margin: .35rem 0; }
+  a { color: #0b63ce; }
+  nav { margin: 0 0 2rem; font-size: .9rem; }
+  nav a { margin-right: 1rem; }
+  blockquote { margin: 1rem 0; padding-left: 1rem; border-left: 3px solid #e3e3e6; }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: .92rem; }
+  th, td { text-align: left; vertical-align: top; padding: .45rem .5rem; border-bottom: 1px solid #e3e3e6; }
+  pre { overflow-x: auto; padding: .75rem 1rem; border: 1px solid #e3e3e6; border-radius: 8px; font-size: .85rem; line-height: 1.45; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em; word-break: break-all; }
+  pre code { word-break: normal; }
+  .card { border: 1px solid #e3e3e6; border-radius: 12px; padding: 1rem 1.25rem; margin: 1.5rem 0; }
+  footer { margin-top: 3rem; padding-top: 1.25rem; border-top: 1px solid #e3e3e6;
+           color: #6b6b70; font-size: .875rem; }
+  @media (prefers-color-scheme: dark) {
+    body { color: #f2f2f7; background: #111113; }
+    p, li, td, th { color: #d8d8de; }
+    .eff, .lede, footer { color: #98989f; }
+    a { color: #6aa9f0; }
+    footer, .card, th, td, blockquote, pre { border-color: #2c2c2f; }
+  }
+</style>
+</head>
+<body>
+<nav><a href="./">Support</a><a href="privacy.html">Privacy Policy</a><a href="terms.html">Terms of Service</a><a href="official-rules.html">Official Rules</a><a href="draw-algorithm.html">Draw Algorithm</a></nav>
+<h1>Lock In, Son — How the Monthly Draw Is Checked</h1>
+<p>This page is the algorithm referred to in section 6 of the Official Rules. It lets anyone recompute a month's winners and alternates from the published values. It uses only SHA-256 and integer arithmetic, so any programming language gives the same result.</p>
+<h2>1. What is published</h2>
+<p>Each eligible entry gets a random <strong>entry ID</strong>, such as <code>2026-10_Q7c0LmZ2pX9aT4vB8nR1</code>. Entry IDs contain no names, email addresses or account details. Mail entries get IDs the same way and are drawn together with app entries.</p>
+<table>
+<tr><th>Value</th><th>What it is</th></tr>
+<tr><td>Entry list</td><td>Every eligible entry ID for the month</td></tr>
+<tr><td>Fingerprint</td><td>SHA-256 of the sorted entry list (step 2), recorded before the seed exists</td></tr>
+<tr><td>Seed</td><td>32 random bytes, written as 64 lowercase hex characters, generated only after the fingerprint was recorded</td></tr>
+<tr><td>Number of winners (n)</td><td>The month's number of prizes, or the number of eligible entries if that is smaller</td></tr>
+<tr><td>Alternates</td><td>The entry IDs that follow the winners in the same shuffle, in order</td></tr>
+</table>
+<p>After staff confirm a month's result, the fingerprint, the seed and your own entry ID are shown in the app's Draw tab. We email all of these values, including the full entry list and the alternates, to anyone who asks at support@zhanrushmanllc.com; mail entrants also get their own entry ID that way.</p>
+<h2>2. The algorithm</h2>
+<ol>
+<li><strong>Sort</strong> the entry IDs in ascending order of their UTF-8 bytes. For the ASCII IDs used here this is ordinary string order, with capital letters before lowercase letters.</li>
+<li><strong>Fingerprint</strong> = lowercase hex of SHA-256 of the sorted IDs joined with commas (UTF-8). It must equal the published fingerprint.</li>
+<li><strong>Random number stream.</strong> Let S be the 32 seed bytes. Block c (c = 0, 1, 2, …) is SHA-256(S followed by c as an 8-byte big-endian integer). Each block is cut into eight 4-byte big-endian unsigned integers, and the blocks follow one another: block 0's eight numbers, then block 1's, and so on.</li>
+<li><strong>Unbiased number below a bound.</strong> To get r with 0 ≤ r &lt; bound: limit = 2³² − (2³² mod bound); take the next number u from the stream; if u &lt; limit, r = u mod bound; otherwise discard u and take the next one.</li>
+<li><strong>Shuffle the front of the list.</strong> Let a be the sorted list, m its length, and k = min(n, m). For i = 0, 1, …, k − 1: j = i + (number below m − i); swap a[i] and a[j]. The winners are a[0] … a[k − 1], in the order drawn.</li>
+<li><strong>Alternates.</strong> A = min(3 × number of prizes, m − n), or 0 if that is negative. Repeat step 5 from the start of the same stream with n + A instead of n. The first n entries are the same winners; the next A entries are the alternates, in order.</li>
+</ol>
+<p>When a winner forfeits (Official Rules section 7), the prize goes to the next alternate who hasn't been used yet. All prizes in a month share this one order, and each prize can pass to at most three alternates.</p>
+<h2>3. Reference implementation (Python 3, standard library only)</h2>
+<pre><code>import hashlib
+
+def sorted_ids(ids):
+    for entry in ids:
+        if entry == "" or "," in entry:
+            raise ValueError(f"bad entry id {entry!r}")
+    result = sorted(ids, key=lambda s: s.encode("utf-8"))
+    if len(set(result)) != len(result):
+        raise ValueError("duplicate entry id")
+    return result
+
+def entries_hash(ids):
+    return hashlib.sha256(",".join(sorted_ids(ids)).encode("utf-8")).hexdigest()
+
+def uint32_stream(seed_hex):
+    seed = bytes.fromhex(seed_hex)
+    assert len(seed) == 32
+    counter = 0
+    while True:
+        block = hashlib.sha256(seed + counter.to_bytes(8, "big")).digest()
+        for offset in range(0, 32, 4):
+            yield int.from_bytes(block[offset:offset + 4], "big")
+        counter += 1
+
+def pick(ids, seed_hex, n):
+    entries = sorted_ids(ids)
+    stream = uint32_stream(seed_hex)
+
+    def below(bound):
+        limit = 2**32 - (2**32 % bound)
+        while True:
+            value = next(stream)
+            if value &lt; limit:
+                return value % bound
+
+    count = min(n, len(entries))
+    for i in range(count):
+        j = i + below(len(entries) - i)
+        entries[i], entries[j] = entries[j], entries[i]
+    return entries[:count]
+
+def pick_with_alternates(ids, seed_hex, n, prize_count):
+    alternates = max(0, min(3 * prize_count, len(ids) - n))
+    order = pick(ids, seed_hex, n + alternates)
+    return order[:n], order[n:]</code></pre>
+<h2>4. A worked example</h2>
+<p>This example uses test values, not a real month.</p>
+<ul>
+<li>Entry IDs: <code>2026-10_Aa1B2c3D4e5F6g7H8i9J</code>, <code>2026-10_Zq8W2e4R6t8Y0u2I4o6P</code>, <code>2026-10_bX4nT8qL2mV6zR0kW3sY</code>, <code>2026-10_cK9vP3dF7hJ1lN5rT2xZ</code>, <code>2026-10_mN3bV5cX7zL9kJ1hG3fD</code>, <code>2026-10_u7Qp2LxK9sVb3NcR1tYw</code>, <code>2026-10_x0Y9z8W7v6U5t4S3r2Q1</code></li>
+<li>Fingerprint: <code>d180b026bb718e5429c2f64fbe33879c267133b8eb008c4644d012dbe0967d91</code></li>
+<li>Seed: <code>a1efa01462abe604ee596bb0271b76b08400ed43dfc552f295e46a3bf8a2db0d</code></li>
+<li>Prizes: 2, so n = 2 and A = min(6, 5) = 5</li>
+<li>Winners, in order: <code>2026-10_u7Qp2LxK9sVb3NcR1tYw</code>, <code>2026-10_Zq8W2e4R6t8Y0u2I4o6P</code></li>
+<li>Alternates, in order: <code>2026-10_Aa1B2c3D4e5F6g7H8i9J</code>, <code>2026-10_x0Y9z8W7v6U5t4S3r2Q1</code>, <code>2026-10_cK9vP3dF7hJ1lN5rT2xZ</code>, <code>2026-10_mN3bV5cX7zL9kJ1hG3fD</code>, <code>2026-10_bX4nT8qL2mV6zR0kW3sY</code></li>
+</ul>
+<p><code>pick_with_alternates(ids, seed, 2, 2)</code> returns exactly these two lists.</p>
+<footer>Lock In, Son is published by Zhan&amp;Rushman LLC. Contact: <a href="mailto:support@zhanrushmanllc.com">support@zhanrushmanllc.com</a>.</footer>
+</body>
+</html>
